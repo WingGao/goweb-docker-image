@@ -1,6 +1,6 @@
 FROM ubuntu:xenial
 WORKDIR /app
-COPY entry/google_linux_signing_key.pub /tmp
+COPY entry/* /tmp/
 RUN apt-key add /tmp/google_linux_signing_key.pub
 # sourse
 RUN { \
@@ -34,8 +34,30 @@ RUN set -ex; \
     apt-get install -y tzdata;
 RUN dpkg-reconfigure -f noninteractive tzdata
 
+# 安装Elasticsearch
+ENV DEBIAN_FRONTEND noninteractive
+RUN { \
+	apt install -y software-properties-common vim apt-transport-https; \
+	add-apt-repository -y ppa:linuxuprising/java; \
+	wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -; \
+	echo "deb https://artifacts.elastic.co/packages/6.x/apt stable main" | tee -a /etc/apt/sources.list.d/elastic-6.x.list; \
+	apt-get update; \
+	echo debconf shared/accepted-oracle-license-v1-1 select true | debconf-set-selections; \
+	echo debconf shared/accepted-oracle-license-v1-1 seen true | debconf-set-selections; \
+}
+RUN apt install -y oracle-java10-installer elasticsearch
+# 中文分词ik插件
+RUN { \
+	/usr/share/elasticsearch/bin/elasticsearch-plugin install https://github.com/medcl/elasticsearch-analysis-ik/releases/download/v6.3.0/elasticsearch-analysis-ik-6.3.0.zip; \
+}
+RUN cp -f /tmp/elasticsearch.yml /etc/elasticsearch
+# RUN service elasticsearch stop
+
+ENV DEBIAN_FRONTEND=
+
 VOLUME /app
 VOLUME /temp
+VOLUME /wdata
 
 CMD ["./run.sh"]
 
